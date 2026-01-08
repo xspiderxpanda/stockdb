@@ -1,0 +1,14 @@
+{
+  "name": "stock-db",
+  "version": "1.0.0",
+  "description": "Stock Manage by Pxite",
+  "main": "main.js",
+  "scripts": {
+    "dev": "electron ."
+  },
+  "author": "Pxite",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^30.0.0"
+  }
+}
