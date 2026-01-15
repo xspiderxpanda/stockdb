@@ -140,15 +140,12 @@ router.post("/excel", upload.single("file"), async (req, res) => {
       });
     }
 
-    // ทำ bulk เป็น chunk กัน request ใหญ่เกิน (100k+ ก็ไหว)
     async function bulkInChunks(model, ops, chunkSize = 2000, label = "") {
       let processed = 0;
       for (let i = 0; i < ops.length; i += chunkSize) {
         const chunk = ops.slice(i, i + chunkSize);
         await model.bulkWrite(chunk, { ordered: false });
         processed += chunk.length;
-
-        // log ความคืบหน้า (ช่วยมากตอน 100k+)
         if (label) {
           console.log(`📦 ${label} processed: ${processed}/${ops.length}`);
         }
@@ -183,7 +180,6 @@ router.post("/excel", upload.single("file"), async (req, res) => {
       skippedRows: skipped,
     });
   } catch (err) {
-    // timing end (กรณี error ก็อยากรู้ใช้ไปกี่วิ)
     const endTime = Date.now();
     const endAt = new Date(endTime).toISOString();
     const durationMs = endTime - startTime;

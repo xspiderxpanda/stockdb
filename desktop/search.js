@@ -23,6 +23,26 @@ function debounce(fn, delay = 300) {
   };
 }
 
+function createUnitSelect(skus, onChange) {
+  const select = document.createElement("select");
+  select.className = "unit-select";
+
+  skus.forEach((s, index) => {
+    const opt = document.createElement("option");
+    opt.value = index; // index ของ skus[]
+    opt.textContent = `${s.unit}`;
+    select.appendChild(opt);
+  });
+
+  select.addEventListener("change", () => {
+    const selected = skus[select.value];
+    onChange(selected);
+  });
+
+  return select;
+}
+
+
 function setLoadingTable() {
   resultBody.innerHTML = `
     <tr><td colspan="6" class="py-10 text-center text-slate-400">กำลังค้นหา...</td></tr>
@@ -43,18 +63,60 @@ function fmtPrice(v) {
 }
 
 
-function addRow(product, sku = {}) {
+function addRow(tbody, product) {
+  if (!product.skus || product.skus.length === 0) return;
+
   const tr = document.createElement("tr");
-  tr.className = "hover:bg-slate-50";
-  tr.innerHTML = `
-    <td class="px-4 py-3">${sku.sku ?? "-"}</td>
-    <td class="px-4 py-3">${product.product_name ?? "-"}</td>
-    <td class="px-4 py-3">${sku.unit ?? "-"}</td>
-    <td class="px-4 py-3 text-right">${fmtPrice(sku.price)}</td>
-    <td class="px-4 py-3 text-right">${sku.stock_qty ?? "-"}</td>
-  `;
-  resultBody.appendChild(tr);
+
+  // ใช้ unit แรกเป็น default
+  let currentSku = product.skus[0];
+
+  // ===== ชื่อสินค้า =====
+  const tdName = document.createElement("td");
+  tdName.textContent = product.product_name;
+  tr.appendChild(tdName);
+
+  // ===== SKU =====
+  const tdSku = document.createElement("td");
+  tdSku.textContent = currentSku.sku;
+  tr.appendChild(tdSku);
+
+  // ===== UNIT (SELECT) =====
+  const tdUnit = document.createElement("td");
+  const unitSelect = createUnitSelect(product.skus, (selected) => {
+    currentSku = selected;
+
+    priceSpan.textContent = selected.price;
+    factorSpan.textContent = selected.factor;
+    stockSpan.textContent = selected.stock_qty;
+  });
+  tdUnit.appendChild(unitSelect);
+  tr.appendChild(tdUnit);
+
+  // ===== FACTOR =====
+  const tdFactor = document.createElement("td");
+  const factorSpan = document.createElement("span");
+  factorSpan.textContent = currentSku.factor;
+  tdFactor.appendChild(factorSpan);
+  tr.appendChild(tdFactor);
+
+  // ===== PRICE =====
+  const tdPrice = document.createElement("td");
+  const priceSpan = document.createElement("span");
+  priceSpan.textContent = currentSku.price;
+  tdPrice.appendChild(priceSpan);
+  tr.appendChild(tdPrice);
+
+  // ===== STOCK =====
+  const tdStock = document.createElement("td");
+  const stockSpan = document.createElement("span");
+  stockSpan.textContent = currentSku.stock_qty;
+  tdStock.appendChild(stockSpan);
+  tr.appendChild(tdStock);
+
+  tbody.appendChild(tr);
 }
+
 
 // ---------- SEARCH ----------
 async function search(page = 1) {
@@ -79,20 +141,14 @@ async function search(page = 1) {
     return;
   }
 
-  resultBody.innerHTML = "";
-  let rows = 0;
+ resultBody.innerHTML = "";
+let rows = 0;
 
-  data.items.forEach((p) => {
-    if (!p.skus || p.skus.length === 0) {
-      addRow(p);
-      rows++;
-    } else {
-      p.skus.forEach((s) => {
-        addRow(p, s);
-        rows++;
-      });
-    }
-  });
+data.items.forEach((p) => {
+  addRow(resultBody, p);
+  rows++;
+});
+
 
   if (rows === 0) setEmptyTable("ไม่พบข้อมูล");
 
@@ -181,7 +237,7 @@ tabImport.onclick = () => setTab("import");
 
 function setTab(mode) {
   addMode = mode;
-  addMsg.innerHTML = "";
+  addMsg.innerHTML = "Waiting";
   panelSingle.classList.toggle("hidden", mode !== "single");
   panelImport.classList.toggle("hidden", mode !== "import");
   saveAddBtn.textContent = mode === "single" ? "บันทึก" : "อัปโหลด";
@@ -246,8 +302,17 @@ saveAddBtn.onclick = async () => {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Save failed");
+      const ct = res.headers.get("content-type") || "";
+const raw = await res.text();
+
+let data;
+if (ct.includes("application/json")) {
+  data = JSON.parse(raw);
+} else {
+  throw new Error(`API ไม่ได้ส่ง JSON กลับมา (status ${res.status}) : ${raw.slice(0, 120)}`);
+}
+
+if (!res.ok) throw new Error(data.message || "Save failed");
 
       addMsg.innerHTML =
         `<span class="text-emerald-600">บันทึกสำเร็จ</span>`;
@@ -294,9 +359,14 @@ saveAddBtn.onclick = async () => {
       if (!res.ok) throw new Error(data.message || "Import failed");
 
       const uiEnd = performance.now();
-      logLine(`Start : ${fmtTime(data.timing?.startAt)}`);
-      logLine(`End : ${fmtTime(data.timing?.endAt)}`);
-      logLine(`Processing time : ${data.timing?.durationSec} sec`);
+      logLine(`Start : ${fmtTime(data.timing?.started_at || data.started_at)}`);
+      logLine(`End : ${fmtTime(data.timing?.finished_at || data.finished_at)}`);
+
+      const durationSec =
+        data.timing?.durationSec ??
+        (data.duration_ms ? (data.duration_ms / 1000).toFixed(2) : "-");
+
+      logLine(`Processing time : ${durationSec} sec`);
       logLine(`Client Processing time : ${((uiEnd - uiStart) / 1000).toFixed(2)} sec`);
 
       await search(1);

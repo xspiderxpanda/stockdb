@@ -1,142 +1,60 @@
-const express = require("express");
+const router = require("express").Router();
 const Product = require("../models/Product");
-const Sku = require("../models/Sku");
 
-const router = express.Router();
-
-/**
- * POST /api/products
- * เพิ่มสินค้าแบบทีละรายการ
- */
+// CREATE
 router.post("/", async (req, res) => {
   try {
-    const { product, skus } = req.body;
-
-    if (!product?.sku || !product?.product_name) {
-      return res.status(400).json({
-        message: "SKU and Product Name are required",
-      });
-    }
-
-    await Product.updateOne(
-      { sku: product.sku },
-      { $set: product },
-      { upsert: true }
-    );
-
-    if (Array.isArray(skus) && skus.length > 0) {
-      const ops = skus
-        .map((s) => {
-          if (!s?.sku) return null;
-
-          return {
-            updateOne: {
-              filter: { sku: String(s.sku).trim() },
-              update: {
-                $set: {
-                  sku: String(s.sku).trim(),
-                  barcode: s.barcode ?? product.sku,
-                  unit: s.unit ?? "",
-                  factor: Number(s.factor) || 1,
-                  price: Number(s.price) || 0,
-                  stock_qty: Number(s.stock_qty) || 0,
-                  warehouse: s.warehouse ?? "",
-                },
-              },
-              upsert: true,
-            },
-          };
-        })
-        .filter(Boolean);
-
-      await Sku.bulkWrite(ops, { ordered: false });
-    }
-
-    res.json({ message: "ok" });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    const doc = await Product.create(req.body);
+    res.status(201).json(doc);
+  } catch (e) {
+    res.status(400).json({ message: e.message });
   }
 });
 
-/**
- * GET /api/products/search
- * ค้นหาจาก Product ID / Product Name / SKU
- */
-router.get("/search", async (req, res) => {
+// READ list (ค้นหาด้วย q)
+router.get("/", async (req, res) => {
+  const { q, category_code, brand_code, supplier_code } = req.query;
+  const filter = {};
+  if (category_code) filter.category_code = category_code;
+  if (brand_code) filter.brand_code = brand_code;
+  if (supplier_code) filter.supplier_code = supplier_code;
+  if (q) filter.$text = { $search: q };
+
+  const docs = await Product.find(filter).sort({ updated_at: -1 }).limit(100);
+  res.json(docs);
+});
+
+// READ by barcode
+router.get("/:barcode", async (req, res) => {
+  const doc = await Product.findOne({ barcode: req.params.barcode });
+  if (!doc) return res.status(404).json({ message: "not found" });
+  res.json(doc);
+});
+
+// UPDATE
+router.put("/:barcode", async (req, res) => {
   try {
-    const keyword = (req.query.keyword || "").trim();
-    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
-    const limit = Math.min(parseInt(req.query.limit || "10", 10), 50);
-    const skip = (page - 1) * limit;
-
-    let matchStage = {};
-
-    if (keyword) {
-      matchStage = {
-        $or: [
-          { sku: { $regex: keyword, $options: "i" } },
-          { product_name: { $regex: keyword, $options: "i" } },
-          { "skus.sku": { $regex: keyword, $options: "i" } },
-        ],
-      };
-    }
-
-    const basePipeline = [
-      {
-        $lookup: {
-          from: "sku_master",
-          localField: "sku",
-          foreignField: "sku",
-          as: "skus",
-        },
-      },
-      ...(keyword ? [{ $match: matchStage }] : []),
-    ];
-
-    // count total
-    const totalAgg = await Product.aggregate([
-      ...basePipeline,
-      { $count: "count" },
-    ]);
-    const total = totalAgg[0]?.count || 0;
-
-    // fetch data
-    const items = await Product.aggregate([
-      ...basePipeline,
-      { $sort: { updatedAt: -1 } },
-      { $skip: skip },
-      { $limit: limit },
-      {
-        $project: {
-          _id: 0,
-          sku: 1,
-          product_name: 1,
-          skus: {
-            $map: {
-              input: "$skus",
-              as: "s",
-              in: {
-                sku: "$$s.sku",
-                unit: "$$s.unit",
-                price: "$$s.price",
-                stock_qty: "$$s.stock_qty",
-              },
-            },
-          },
-        },
-      },
-    ]);
-
-    res.json({
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-      items,
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    const doc = await Product.findOneAndUpdate(
+      { barcode: req.params.barcode },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!doc) return res.status(404).json({ message: "not found" });
+    res.json(doc);
+  } catch (e) {
+    res.status(400).json({ message: e.message });
   }
+});
+
+// DELETE (soft delete แนะนำ)
+router.delete("/:barcode", async (req, res) => {
+  const doc = await Product.findOneAndUpdate(
+    { barcode: req.params.barcode },
+    { status: "inactive" },
+    { new: true }
+  );
+  if (!doc) return res.status(404).json({ message: "not found" });
+  res.json(doc);
 });
 
 module.exports = router;
