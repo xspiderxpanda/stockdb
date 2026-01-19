@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const CategorySchema = new mongoose.Schema(
   {
-    category_code: { type: String, required: true, unique: true, trim: true },
+    category_code: { type: Number, required: true, unique: true, trim: true },
     category_name: { type: String, required: true, trim: true },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     created_by: { type: String },

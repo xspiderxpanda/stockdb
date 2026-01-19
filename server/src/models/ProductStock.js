@@ -25,7 +25,6 @@ const ProductStockSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
 );
 
-// กันซ้ำ: barcode + lot + คลัง + โซน + bin
 ProductStockSchema.index(
   { barcode: 1, lots_no: 1, warehouses_name: 1, warehouses_zone: 1, bin: 1 },
   { unique: true }
