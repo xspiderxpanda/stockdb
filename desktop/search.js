@@ -10,6 +10,10 @@ const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const pageInfo = document.getElementById("pageInfo");
 
+const bucketType = document.getElementById("bucketType");
+const bucketKey = document.getElementById("bucketKey");
+const bucketHint = document.getElementById("bucketHint");
+
 let currentPage = 1;
 let isImporting = false;
 const limit = 10;
@@ -54,6 +58,53 @@ function setEmptyTable(msg = "Not found") {
     <tr><td colspan="6" class="py-10 text-center text-slate-400">${msg}</td></tr>
   `;
 }
+
+async function loadBuckets() {
+  const type = bucketType.value;
+  bucketKey.innerHTML = "";
+  bucketHint.textContent = "";
+
+  if (!type) {
+    bucketKey.disabled = true;
+    bucketKey.innerHTML = `<option value="">ไม่ใช้ bucket</option>`;
+    return;
+  }
+
+  bucketKey.disabled = true;
+  bucketKey.innerHTML = `<option value="">กำลังโหลด...</option>`;
+
+  const res = await fetch(`${window.env.API_BASE_URL}/api/search_product_service/bucket?type=${encodeURIComponent(type)}`);
+  const data = await res.json();
+  if (!res.ok) {
+    bucketKey.innerHTML = `<option value="">โหลด bucket ไม่สำเร็จ</option>`;
+    return;
+  }
+
+  bucketKey.innerHTML = `<option value="">ทั้งหมด</option>`;
+  data.buckets.forEach((b) => {
+    const opt = document.createElement("option");
+    opt.value = b.key;
+    opt.textContent = `${b.key} (${b.count})`;
+    bucketKey.appendChild(opt);
+  });
+
+  bucketKey.disabled = false;
+  bucketHint.textContent = type === "unit"
+    ? "กรองผลลัพธ์ตามหน่วยนับ"
+    : "bucket นี้ยังใช้เพื่อดูสถิติ (ถ้าจะกรองจริงต้องเพิ่มฝั่ง server)";
+}
+
+const unit = (bucketType.value === "unit") ? (bucketKey.value || "") : "";
+
+const res = await fetch(
+  `${window.env.API_BASE_URL}/api/search_product_service/search?keyword=${encodeURIComponent(keyword || "")}&page=${page}&limit=${limit}&unit=${encodeURIComponent(unit)}`
+);
+
+bucketType.addEventListener("change", async () => {
+  await loadBuckets();
+  await search(1);
+});
+bucketKey.addEventListener("change", () => search(1));
 
 function fmtPrice(v) {
   if (v === undefined || v === null || v === "") return "-";

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>Transaction Logs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<style>
+    @font-face {
+      font-family: 'LINE Seed Sans TH';
+      src: url('/src/fonts/LINESeedSansTH-Regular.woff2') format('woff2');
+      font-weight: 300;
+      font-style: normal;
+    }
+    * {
+      font-family: 'LINE Seed Sans TH', sans-serif;
+    }
+    .unit-select {
+  padding: 4px 6px;
+  font-size: 14px;
+}
+
+table tr:hover {
+  background-color: #f5f5f5;
+}
+
+td {
+  vertical-align: middle;
+}
+</style>
+<body class="min-h-screen bg-sky-50">
+  <header class="sticky top-0 z-10 border-b bg-white/80 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-lg font-semibold text-slate-900">Transaction Logs</h1>
+        <p class="text-xs text-slate-500">ดูประวัติการค้นหา/นำเข้า/สแกน</p>
+      </div>
+      <a href="index.html" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        ← กลับหน้าค้นหา
+      </a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-6 py-6">
+    <section class="rounded-2xl bg-white shadow-sm border border-slate-100 p-5">
+      <div class="flex flex-wrap gap-2 items-end">
+        <div>
+          <label class="block text-xs font-medium text-slate-600">Function</label>
+          <select id="fnFilter" class="mt-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+            <option value="">ทั้งหมด</option>
+            <option value="SEARCH_PRODUCT">SEARCH_PRODUCT</option>
+            <option value="SEARCH_BUCKET">SEARCH_BUCKET</option>
+            <option value="SCAN_PRODUCT">SCAN_PRODUCT</option>
+            <option value="SCAN_PRODUCT_FULL">SCAN_PRODUCT_FULL</option>
+            <option value="IMPORT_EXCEL_PRODUCT">IMPORT_EXCEL_PRODUCT</option>
+          </select>
+        </div>
+
+        <button id="reloadBtn" class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
+          โหลดใหม่
+        </button>
+
+        <div class="ml-auto text-xs text-slate-500" id="logMeta">-</div>
+      </div>
+    </section>
+
+    <section class="mt-5 rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-slate-600">
+            <tr>
+              <th class="px-4 py-3 text-left font-semibold">เวลา</th>
+              <th class="px-4 py-3 text-left font-semibold">Function</th>
+              <th class="px-4 py-3 text-left font-semibold">Endpoint</th>
+              <th class="px-4 py-3 text-right font-semibold">Duration (ms)</th>
+              <th class="px-4 py-3 text-right font-semibold">Count</th>
+              <th class="px-4 py-3 text-right font-semibold">Status</th>
+            </tr>
+          </thead>
+          <tbody id="logBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+
+      <div class="flex items-center justify-between px-5 py-4 border-t border-slate-100 bg-white">
+        <button id="prevLog" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40" disabled>
+          ◀ ก่อนหน้า
+        </button>
+        <div class="text-sm text-slate-600" id="logPageInfo">Page 1 / 1</div>
+        <button id="nextLog" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40" disabled>
+          ถัดไป ▶
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <script src="api/transaction.js"></script>
+</body>
+</html>

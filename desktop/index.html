@@ -43,13 +43,16 @@ td {
       </div>
 
       <div class="flex items-center gap-2">
-        <button
-          id="openAddBtn"
-          class="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 active:scale-[0.99] transition"
-        >
-          <span class="text-base leading-none">＋</span>
-          เพิ่มสินค้า
-        </button>
+       <a
+      href="import.html"
+      class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 transition"
+    >
+      + Import
+    </a>
+  <a href="transaction.html"
+           class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          🧾 Transaction
+        </a>
       </div>
     </div>
   </header>
@@ -86,6 +89,23 @@ td {
           </button>
         </div>
           </div>
+
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+  <label class="text-xs font-medium text-slate-600">Bucket:</label>
+
+  <select id="bucketType" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+    <option value="">เลือกทั้งหมด</option>
+    <option value="unit">Unit</option>
+    <option value="price">Price</option>
+    <option value="sku">SKU</option>
+  </select>
+
+  <select id="bucketKey" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" disabled>
+    <option value="">เลือกตัวเลือก</option>
+  </select>
+
+  <span class="text-xs text-slate-500" id="bucketHint"></span>
+</div>
 
           <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
             <span id="resultMeta">พร้อมค้นหา</span>
@@ -150,120 +170,7 @@ td {
       </div>
     </section>
   </main>
-
-  <!-- Add Product Modal -->
- <!-- Add Product Modal -->
-<div id="modalOverlay" class="fixed inset-0 hidden items-center justify-center bg-slate-900/40 p-4">
-  <div class="w-full max-w-2xl rounded-2xl bg-white shadow-xl border border-slate-100">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-      <h3 class="text-base font-semibold text-slate-900">เพิ่มสินค้า</h3>
-      <button id="closeModalBtn" class="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100">✕</button>
-    </div>
-
-    <!-- Tabs -->
-    <div class="px-5 pt-4">
-      <div class="inline-flex rounded-xl bg-slate-100 p-1 text-sm">
-        <button id="tabSingle" class="px-3 py-1.5 rounded-lg font-semibold bg-white text-slate-900 shadow-sm">
-          กรอกทีละรายการ
-        </button>
-        <button id="tabImport" class="px-3 py-1.5 rounded-lg font-semibold text-slate-600 hover:text-slate-900">
-          แนบไฟล์ .xlsx
-        </button>
-      </div>
-    </div>
-
-    <div class="px-5 py-4">
-      <!-- SINGLE FORM -->
-      <div id="panelSingle">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs font-medium text-slate-600">SKU</label>
-            <input id="add_sku" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-300" placeholder="SKU000001" />
-          </div>
-          <div class="sm:col-span-2">
-            <label class="text-xs font-medium text-slate-600">Product Name</label>
-            <input id="add_product_name" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-300" placeholder="ชื่อสินค้า" />
-          </div>
-          <div>
-            <label class="text-xs font-medium text-slate-600">Unit</label>
-            <input id="add_unit" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-300" placeholder="PCS" />
-          </div>
-          <div>
-            <label class="text-xs font-medium text-slate-600">Factor</label>
-            <input id="add_factor" type="number" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-300" placeholder="1" />
-          </div>
-          <div>
-            <label class="text-xs font-medium text-slate-600">Price</label>
-            <input id="add_price" type="number" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-300" placeholder="0" />
-          </div>
-          <div>
-            <label class="text-xs font-medium text-slate-600">Stock Qty (optional)</label>
-            <input id="add_stock" type="number" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-300" placeholder="0" />
-          </div>
-          <div class="sm:col-span-2">
-            <label class="text-xs font-medium text-slate-600">Warehouse (optional)</label>
-            <input id="add_warehouse" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-300" placeholder="BKK" />
-          </div>
-        </div>
-      </div>
-
-      <!-- IMPORT PANEL -->
-<div id="panelImport" class="hidden">
-  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <p class="text-sm font-semibold text-slate-900">แนบไฟล์ Excel (.xlsx)</p>
-        <p class="mt-1 text-xs text-slate-600">
-          ระบบรองรับคอลัมน์ตามรูปแบบใหม่: <span class="font-mono">BarCode, SkuCode, Name, Unit, Factor, Price</span>
-        </p>
-      </div>
-
-      <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
-        ต้องเป็น .xlsx
-      </span>
-    </div>
-
-    <div class="mt-4">
-      <input
-        type="file"
-        id="importFileInput"
-        accept=".xlsx"
-        class="block w-full text-sm text-slate-700
-               file:mr-4 file:py-2 file:px-4
-               file:rounded-xl file:border-0
-               file:text-sm file:font-semibold
-               file:bg-sky-100 file:text-sky-700
-               hover:file:bg-sky-200
-               border border-slate-200 rounded-xl bg-white"
-      />
-      <p class="mt-2 text-xs text-slate-500">
-        * กดปุ่ม <span class="font-semibold">อัปโหลด</span> ด้านล่างเพื่อเริ่ม Import
-      </p>
-    </div>
- 
- 
-    <div class="mt-4 rounded-xl border border-slate-200 bg-white p-3">
-      <p class="text-xs font-semibold text-slate-700">สถานะ</p>
-      <p class="mt-1 text-xs text-slate-500" id="addMsg">
-        Processing Time ..
-      </p>
-    </div>
-  </div>
-</div>
-      
-    </div>
-
-    <div class="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-100 bg-slate-50">
-      <button id="cancelAddBtn" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition">
-        ยกเลิก
-      </button>
-      <button id="saveAddBtn" class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 active:scale-[0.99] transition">
-        บันทึก
-      </button>
-    </div>
-  </div>
-</div>
-
+  
 
   <script src="search.js"></script>
 </body>

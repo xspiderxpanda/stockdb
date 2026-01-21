@@ -11,7 +11,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(morgan("dev"));
 
-
 // routes
 app.use("/api/categories", require("./routes/category.routes"));
 app.use("/api/suppliers", require("./routes/supplier.routes"));
@@ -23,6 +22,8 @@ app.use("/api/test", require("./routes/test.routes"));
 app.use("/api/sku-units", require("./routes/sku_unit.routes"));
 app.use("/api/search_product_service", require("./routes/search_product_service.routes"));
 app.use("/api/insert_product_service", require("./routes/insert_product_service.routes"));
+app.use("/api/transaction_logs", require("./routes/transaction_log.routes"));
+
 // http://localhost:3000/api/search_product_service
 
 app.get("/", (_, res) => res.json({ ok: true }));
