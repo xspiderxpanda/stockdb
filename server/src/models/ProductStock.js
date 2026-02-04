@@ -18,16 +18,21 @@ const ProductStockSchema = new mongoose.Schema(
     mfg: { type: Date },
     exp: { type: Date },
 
-    status: { type: String, enum: ["active", "inactive"], default: "active" },
-    created_by: { type: String },
-    updated_by: { type: String },
+    // status: { type: String, enum: ["active", "inactive"], default: "active" },
+    status: { type: Boolean, default: true },
+    created_by: { type: Number },
+    updated_by: { type: Number },
   },
-  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
+  {
+    collection: "product_stocks"
+  }
+  
 );
 
-ProductStockSchema.index(
-  { barcode: 1, lots_no: 1, warehouses_name: 1, warehouses_zone: 1, bin: 1 },
-  { unique: true }
-);
+// ProductStockSchema.index(
+//   { barcode: 1, lots_no: 1, warehouses_name: 1, warehouses_zone: 1, bin: 1 },
+//   // { unique: true }
+// );
 
 module.exports = mongoose.model("product_stock", ProductStockSchema);

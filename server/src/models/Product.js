@@ -12,12 +12,12 @@ const ProductSchema = new mongoose.Schema(
     brand_code: { type: Number, required: true, index: true },
 
     balance_qty: { type: Number, default: 0, min: 0 },
-    unit: { type: String, trim: true },
+    unit:{ type: Number, required: true},
     cost_price: { type: Number, default: 0, min: 0 },
 
-    status: { type: String, enum: ["active", "inactive"], default: "active" },
-    created_by: { type: String },
-    updated_by: { type: String },
+    status: { type: Boolean, default: true },
+    created_by: { type: Number },
+    updated_by: { type: Number },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
 );

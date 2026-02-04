@@ -1,20 +1,13 @@
 const router = require("express").Router();
-const Category = require("../models/Category");
+const Unit = require("../models/Unit");
 const response = require("../helpers/response.helper");
+
 const multer = require("multer");
 const upload = multer({ dest: "/tmp/" });
 const fs = require("fs");  
 const csv = require("csv-parser");
 
-router.post("/", async (req, res) => {
-  try {
-    const doc = await Category.create(req.body);
-    res.status(201).json(doc);
-  } catch (e) {
-    res.status(400).json({ message: e.message });
-  }
-});
-
+// READ list
 router.get("/", async (req, res) => {
   try {
     const { keyword } = req.query;
@@ -23,29 +16,23 @@ router.get("/", async (req, res) => {
 
     if (keyword && keyword.trim() !== "") {
       filter = {
-        category_name_th: { $regex: keyword, $options: "i" }
+        name: { $regex: keyword, $options: "i" }
       };
     }
 
-    const docs = await Category
-      .find(filter)
-      .sort({ updated_at: -1 });
+    const docs = await Unit
+      .find(filter);
 
     const result = docs.map(d => ({
-      category_code: d.category_code,
-      category_name_en: d.category_name_en,
-      category_name_th: d.category_name_th,
+      unit_code: d.unit_code,
+      name: d.name,
       status: d.status
     }));
 
-    return response.success(res, result, "Get category success.");
+    return response.success(res, result, "Get unit success.");
   } catch (error) {
-    return response.badRequest(res, "Get category fail.");
+    return response.badRequest(res, "Get unit fail.");
   }
-});
-
-router.get("/", (req, res) => {
-  res.json({ ok: true });
 });
 
 router.post("/import", upload.single("file"), async (req, res) => {
@@ -60,27 +47,25 @@ router.post("/import", upload.single("file"), async (req, res) => {
       .pipe(csv())
       .on("data", (row) => {
         results.push({
-          category_code: Number(row.category_code),
-          category_name_th: row.category_name_th,
-          category_name_en: row.category_name_en,
+          unit_code: Number(row.unit_code),
+          name: row.name,
         });
       })
       .on("end", async () => {
         // insert แบบข้ามตัวซ้ำ
-        await Category.insertMany(results, { ordered: false });
+        await Unit.insertMany(results, { ordered: false });
 
         if (fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
         }
 
-        return response.success(res, results, "Import category success.");
+        return response.success(res, results, "Import unit success.");
       });
 
   } catch (error) {
     console.error(error);
-    return response.badRequest(res, "Import category fail.");
+    return response.badRequest(res, "Import unit fail.");
   }
 });
 
 module.exports = router;
-

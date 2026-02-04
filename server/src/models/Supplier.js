@@ -4,7 +4,7 @@ const SupplierSchema = new mongoose.Schema(
   {
     supplier_code: { type: Number, required: true, unique: true, trim: true },
     supplier_name: { type: String, required: true, trim: true },
-    status: { type: String, enum: ["active", "inactive"], default: "active" },
+    status: { type: Boolean, default: true },
     created_by: { type: String },
     updated_by: { type: String },
   },

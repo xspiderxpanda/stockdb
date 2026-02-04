@@ -1,3 +1,7 @@
+// Search page logic (Electron renderer)
+// Uses API base from preload: window.env.API_BASE_URL
+// Endpoints (override by setting window.env.ENDPOINTS in preload if needed)
+
 const keywordInput = document.getElementById("keywordInput");
 const searchBtn = document.getElementById("searchBtn");
 const clearBtn = document.getElementById("clearBtn");
@@ -15,8 +19,20 @@ const bucketKey = document.getElementById("bucketKey");
 const bucketHint = document.getElementById("bucketHint");
 
 let currentPage = 1;
-let isImporting = false;
 const limit = 10;
+
+// ---------- config ----------
+function apiBase() {
+  const base = window.env?.API_BASE_URL;
+  return base ? base.replace(/\/$/, "") : null;
+}
+function ep(name, fallback) {
+  return window.env?.ENDPOINTS?.[name] || fallback;
+}
+const ENDPOINTS = {
+  SEARCH: ep("SEARCH", "/api/search_product_service/search"),
+  BUCKET: ep("BUCKET", "/api/search_product_service/bucket"),
+};
 
 // ---------- helpers ----------
 function debounce(fn, delay = 300) {
@@ -27,84 +43,26 @@ function debounce(fn, delay = 300) {
   };
 }
 
-function createUnitSelect(skus, onChange) {
-  const select = document.createElement("select");
-  select.className = "unit-select";
-
-  skus.forEach((s, index) => {
-    const opt = document.createElement("option");
-    opt.value = index; // index ของ skus[]
-    opt.textContent = `${s.unit}`;
-    select.appendChild(opt);
-  });
-
-  select.addEventListener("change", () => {
-    const selected = skus[select.value];
-    onChange(selected);
-  });
-
-  return select;
-}
-
-
 function setLoadingTable() {
   resultBody.innerHTML = `
     <tr><td colspan="6" class="py-10 text-center text-slate-400">กำลังค้นหา...</td></tr>
   `;
 }
 
-function setEmptyTable(msg = "Not found") {
+function setEmptyTable(msg = "ไม่พบข้อมูล") {
   resultBody.innerHTML = `
     <tr><td colspan="6" class="py-10 text-center text-slate-400">${msg}</td></tr>
   `;
 }
 
-async function loadBuckets() {
-  const type = bucketType.value;
-  bucketKey.innerHTML = "";
-  bucketHint.textContent = "";
-
-  if (!type) {
-    bucketKey.disabled = true;
-    bucketKey.innerHTML = `<option value="">ไม่ใช้ bucket</option>`;
-    return;
+async function safeJson(res) {
+  const raw = await res.text();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error(`API ไม่ได้ส่ง JSON (status ${res.status}): ${raw.slice(0, 200)}`);
   }
-
-  bucketKey.disabled = true;
-  bucketKey.innerHTML = `<option value="">กำลังโหลด...</option>`;
-
-  const res = await fetch(`${window.env.API_BASE_URL}/api/search_product_service/bucket?type=${encodeURIComponent(type)}`);
-  const data = await res.json();
-  if (!res.ok) {
-    bucketKey.innerHTML = `<option value="">โหลด bucket ไม่สำเร็จ</option>`;
-    return;
-  }
-
-  bucketKey.innerHTML = `<option value="">ทั้งหมด</option>`;
-  data.buckets.forEach((b) => {
-    const opt = document.createElement("option");
-    opt.value = b.key;
-    opt.textContent = `${b.key} (${b.count})`;
-    bucketKey.appendChild(opt);
-  });
-
-  bucketKey.disabled = false;
-  bucketHint.textContent = type === "unit"
-    ? "กรองผลลัพธ์ตามหน่วยนับ"
-    : "bucket นี้ยังใช้เพื่อดูสถิติ (ถ้าจะกรองจริงต้องเพิ่มฝั่ง server)";
 }
-
-const unit = (bucketType.value === "unit") ? (bucketKey.value || "") : "";
-
-const res = await fetch(
-  `${window.env.API_BASE_URL}/api/search_product_service/search?keyword=${encodeURIComponent(keyword || "")}&page=${page}&limit=${limit}&unit=${encodeURIComponent(unit)}`
-);
-
-bucketType.addEventListener("change", async () => {
-  await loadBuckets();
-  await search(1);
-});
-bucketKey.addEventListener("change", () => search(1));
 
 function fmtPrice(v) {
   if (v === undefined || v === null || v === "") return "-";
@@ -113,64 +71,138 @@ function fmtPrice(v) {
   return n.toLocaleString();
 }
 
+function createUnitSelect(skus, onChange) {
+  const select = document.createElement("select");
+  select.className = "unit-select rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm";
+
+  skus.forEach((s, index) => {
+    const opt = document.createElement("option");
+    opt.value = String(index);
+    opt.textContent = `${s.unit}`;
+    select.appendChild(opt);
+  });
+
+  select.addEventListener("change", () => {
+    const selected = skus[Number(select.value)];
+    onChange(selected);
+  });
+
+  return select;
+}
 
 function addRow(tbody, product) {
-  if (!product.skus || product.skus.length === 0) return;
+  if (!product?.skus?.length) return;
 
   const tr = document.createElement("tr");
-
-  // ใช้ unit แรกเป็น default
   let currentSku = product.skus[0];
 
-  // ===== ชื่อสินค้า =====
-  const tdName = document.createElement("td");
-  tdName.textContent = product.product_name;
-  tr.appendChild(tdName);
-
-  // ===== SKU =====
+  // SKU
   const tdSku = document.createElement("td");
-  tdSku.textContent = currentSku.sku;
+  tdSku.className = "px-4 py-3 font-mono text-xs text-slate-700";
+  tdSku.textContent = currentSku.sku ?? "-";
   tr.appendChild(tdSku);
 
-  // ===== UNIT (SELECT) =====
+  // Product
+  const tdName = document.createElement("td");
+  tdName.className = "px-4 py-3";
+  tdName.textContent = product.product_name ?? "-";
+  tr.appendChild(tdName);
+
+  // Unit (select)
   const tdUnit = document.createElement("td");
+  tdUnit.className = "px-4 py-3";
   const unitSelect = createUnitSelect(product.skus, (selected) => {
     currentSku = selected;
-
-    priceSpan.textContent = selected.price;
-    factorSpan.textContent = selected.factor;
-    stockSpan.textContent = selected.stock_qty;
+    factorSpan.textContent = selected.factor ?? "-";
+    priceSpan.textContent = fmtPrice(selected.price);
+    stockSpan.textContent = selected.stock_qty ?? "-";
+    tdSku.textContent = selected.sku ?? "-";
   });
   tdUnit.appendChild(unitSelect);
   tr.appendChild(tdUnit);
 
-  // ===== FACTOR =====
+  // Factor
   const tdFactor = document.createElement("td");
+  tdFactor.className = "px-4 py-3";
   const factorSpan = document.createElement("span");
-  factorSpan.textContent = currentSku.factor;
+  factorSpan.textContent = currentSku.factor ?? "-";
   tdFactor.appendChild(factorSpan);
   tr.appendChild(tdFactor);
 
-  // ===== PRICE =====
+  // Price
   const tdPrice = document.createElement("td");
+  tdPrice.className = "px-4 py-3 text-right";
   const priceSpan = document.createElement("span");
-  priceSpan.textContent = currentSku.price;
+  priceSpan.textContent = fmtPrice(currentSku.price);
   tdPrice.appendChild(priceSpan);
   tr.appendChild(tdPrice);
 
-  // ===== STOCK =====
+  // Stock
   const tdStock = document.createElement("td");
+  tdStock.className = "px-4 py-3 text-right";
   const stockSpan = document.createElement("span");
-  stockSpan.textContent = currentSku.stock_qty;
+  stockSpan.textContent = currentSku.stock_qty ?? "-";
   tdStock.appendChild(stockSpan);
   tr.appendChild(tdStock);
 
   tbody.appendChild(tr);
 }
 
+// ---------- BUCKET ----------
+async function loadBuckets() {
+  const base = apiBase();
+  if (!base) return;
+
+  const type = bucketType.value;
+  bucketKey.innerHTML = "";
+  bucketHint.textContent = "";
+
+  if (!type) {
+    bucketKey.disabled = true;
+    bucketKey.innerHTML = `<option value="">เลือกทั้งหมด</option>`;
+    return;
+  }
+
+  bucketKey.disabled = true;
+  bucketKey.innerHTML = `<option value="">กำลังโหลด...</option>`;
+
+  try {
+    const url = new URL(base + ENDPOINTS.BUCKET);
+    url.searchParams.set("type", type);
+
+    const res = await fetch(url.toString());
+    const data = await safeJson(res);
+
+    if (!res.ok) throw new Error(data.message || "โหลด bucket ไม่สำเร็จ");
+
+    bucketKey.innerHTML = `<option value="">ทั้งหมด</option>`;
+    (data.buckets || []).forEach((b) => {
+      const opt = document.createElement("option");
+      opt.value = b.key;
+      opt.textContent = `${b.key} (${b.count})`;
+      bucketKey.appendChild(opt);
+    });
+
+    bucketKey.disabled = false;
+    bucketHint.textContent =
+      type === "unit"
+        ? "กรองผลลัพธ์ตามหน่วยนับ (unit)"
+        : "bucket ใช้ดูสถิติ (ถ้าจะกรองจริงให้ใช้ bucket=unit)";
+  } catch (e) {
+    bucketKey.disabled = true;
+    bucketKey.innerHTML = `<option value="">โหลด bucket ไม่สำเร็จ</option>`;
+    bucketHint.textContent = e.message || "โหลด bucket ไม่สำเร็จ";
+  }
+}
 
 // ---------- SEARCH ----------
 async function search(page = 1) {
+  const base = apiBase();
+  if (!base) {
+    setEmptyTable("ยังไม่ได้ตั้งค่า API_BASE_URL (ดู preload.js)");
+    return;
+  }
+
   const keyword = keywordInput.value.trim();
   currentPage = page;
 
@@ -178,257 +210,71 @@ async function search(page = 1) {
   showingCount.textContent = "0";
   resultMeta.textContent = "กำลังค้นหา...";
 
+  // unit filter: ใช้เฉพาะตอน bucketType = unit
+  const unit = bucketType.value === "unit" ? (bucketKey.value || "") : "";
+
   const t0 = performance.now();
-  const res = await fetch(
-    `${window.env.API_BASE_URL}/api/search_product_service/search?keyword=${encodeURIComponent(
-      keyword || ""
-    )}&page=${page}&limit=${limit}`
-  );
-  const data = await res.json();
-  const tookMs = Math.round(performance.now() - t0);
 
-  if (!res.ok) {
-    setEmptyTable("ค้นหาไม่สำเร็จ");
-    return;
+  try {
+    const url = new URL(base + ENDPOINTS.SEARCH);
+    url.searchParams.set("keyword", keyword || "");
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("limit", String(limit));
+    if (unit) url.searchParams.set("unit", unit);
+
+    const res = await fetch(url.toString());
+    const data = await safeJson(res);
+    const tookMs = Math.round(performance.now() - t0);
+
+    if (!res.ok) throw new Error(data.message || "ค้นหาไม่สำเร็จ");
+
+    resultBody.innerHTML = "";
+    let rows = 0;
+
+    (data.items || []).forEach((p) => {
+      addRow(resultBody, p);
+      rows++;
+    });
+
+    if (rows === 0) setEmptyTable("ไม่พบข้อมูล");
+
+    showingCount.textContent = String(rows);
+    pageInfo.textContent = `Page ${data.page ?? 1} / ${data.totalPages ?? 1}`;
+    prevBtn.disabled = (data.page ?? 1) <= 1;
+    nextBtn.disabled = (data.page ?? 1) >= (data.totalPages ?? 1);
+    resultMeta.textContent = `${data.total ?? rows} รายการ • ${tookMs} ms`;
+  } catch (e) {
+    console.error(e);
+    setEmptyTable(`ค้นหาไม่สำเร็จ: ${e.message || e}`);
+    resultMeta.textContent = "เกิดข้อผิดพลาด";
+    pageInfo.textContent = "Page 0 / 0";
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
   }
-
- resultBody.innerHTML = "";
-let rows = 0;
-
-data.items.forEach((p) => {
-  addRow(resultBody, p);
-  rows++;
-});
-
-
-  if (rows === 0) setEmptyTable("ไม่พบข้อมูล");
-
-  showingCount.textContent = rows;
-  pageInfo.textContent = `Page ${data.page} / ${data.totalPages}`;
-  prevBtn.disabled = data.page <= 1;
-  nextBtn.disabled = data.page >= data.totalPages;
-  resultMeta.textContent = `${data.total} รายการ • ${tookMs} ms`;
 }
 
-// realtime search
+// events
 const debouncedSearch = debounce(() => search(1), 300);
 keywordInput.addEventListener("input", debouncedSearch);
+
 searchBtn.onclick = () => search(1);
-prevBtn.onclick = () => search(currentPage - 1);
+prevBtn.onclick = () => search(Math.max(1, currentPage - 1));
 nextBtn.onclick = () => search(currentPage + 1);
 
 clearBtn.onclick = () => {
   keywordInput.value = "";
   search(1);
-  setEmptyTable("ค้นหาสินค้าจาก BarCode , SKU ฯลฯ");
+  setEmptyTable("เริ่มต้นด้วยการค้นหาสินค้า");
   showingCount.textContent = "0";
   pageInfo.textContent = "Page 0 / 0";
   resultMeta.textContent = "พร้อมค้นหา";
 };
 
-// ================= MODAL =================
-const modalOverlay = document.getElementById("modalOverlay");
-const openAddBtn = document.getElementById("openAddBtn");
-const closeModalBtn = document.getElementById("closeModalBtn");
-const cancelAddBtn = document.getElementById("cancelAddBtn");
-const saveAddBtn = document.getElementById("saveAddBtn");
-const addMsg = document.getElementById("addMsg");
-
-const tabSingle = document.getElementById("tabSingle");
-const tabImport = document.getElementById("tabImport");
-const panelSingle = document.getElementById("panelSingle");
-const panelImport = document.getElementById("panelImport");
-
-const add_product_name = document.getElementById("add_product_name");
-const add_sku = document.getElementById("add_sku");
-const add_unit = document.getElementById("add_unit");
-const add_factor = document.getElementById("add_factor");
-const add_price = document.getElementById("add_price");
-const add_stock = document.getElementById("add_stock");
-const add_warehouse = document.getElementById("add_warehouse");
-
-const importFileInput = document.getElementById("importFileInput");
-
-let addMode = "single";
-
-// ---------- import state ----------
-function setImportState(working) {
-  isImporting = working;
-  saveAddBtn.disabled = working;
-  cancelAddBtn.disabled = working;
-  closeModalBtn.disabled = working;
-  saveAddBtn.classList.toggle("opacity-60", working);
-  saveAddBtn.classList.toggle("cursor-not-allowed", working);
-}
-
-function nowISO() {
-  return new Date().toISOString();
-}
-function fmtTime(t) {
-  return t ? new Date(t).toLocaleString() : "-";
-}
-function logLine(html) {
-  addMsg.innerHTML += `<div class="mt-1">${html}</div>`;
-}
-
-modalOverlay.addEventListener("click", (e) => {
-  if (isImporting) return;
-  if (e.target === modalOverlay) closeModal();
+bucketType.addEventListener("change", async () => {
+  await loadBuckets();
+  await search(1);
 });
+bucketKey.addEventListener("change", () => search(1));
 
-openAddBtn.onclick = () => {
-  modalOverlay.classList.remove("hidden");
-  modalOverlay.classList.add("flex");
-  setTab("single");
-};
-closeModalBtn.onclick = closeModal;
-cancelAddBtn.onclick = closeModal;
-tabSingle.onclick = () => setTab("single");
-tabImport.onclick = () => setTab("import");
-
-function setTab(mode) {
-  addMode = mode;
-  addMsg.innerHTML = "Waiting";
-  panelSingle.classList.toggle("hidden", mode !== "single");
-  panelImport.classList.toggle("hidden", mode !== "import");
-  saveAddBtn.textContent = mode === "single" ? "บันทึก" : "อัปโหลด";
-}
-
-function closeModal() {
-  modalOverlay.classList.add("hidden");
-  modalOverlay.classList.remove("flex");
-}
-
-
-saveAddBtn.onclick = async () => {
-  // ================= SINGLE MODE =================
-  if (addMode === "single") {
-    addMsg.innerHTML = ""; // reset เฉพาะตอนเข้า single
-
-    const sku = add_sku.value.trim();
-    const product_name = add_product_name.value.trim();
-
-    // ---------- VALIDATION ----------
-    if (!sku && !product_name) {
-      addMsg.innerHTML =
-        `<span class="text-rose-600">กรุณากรอกข้อมูลสินค้า</span>`;
-      return;
-    }
-  
-     if (!sku) {
-      addMsg.innerHTML =
-        `<span class="text-rose-600">กรุณากรอก SKU สินค้า</span>`;
-        add_sku.focus();
-      return;
-    }
-
-    if (!product_name) {
-      addMsg.innerHTML =
-        `<span class="text-rose-600">กรุณากรอก Product Name</span>`;
-      add_product_name.focus();
-      return;
-    }
-
-    // ---------- SAVE ----------
-    addMsg.innerHTML =
-      `<span class="text-slate-500">กำลังบันทึก...</span>`;
-
-    try {
-      const res = await fetch(`${window.env.API_BASE_URL}/api/search_product_service`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          product: { sku, product_name },
-          skus: [
-            {
-              sku,
-              barcode: sku,
-              unit: add_unit.value.trim(),
-              factor: Number(add_factor.value) || 1,
-              price: Number(add_price.value) || 0,
-              stock_qty: Number(add_stock.value) || 0,
-              warehouse: add_warehouse.value.trim(),
-            },
-          ],
-        }),
-      });
-
-      const ct = res.headers.get("content-type") || "";
-const raw = await res.text();
-
-let data;
-if (ct.includes("application/json")) {
-  data = JSON.parse(raw);
-} else {
-  throw new Error(`API ไม่ได้ส่ง JSON กลับมา (status ${res.status}) : ${raw.slice(0, 120)}`);
-}
-
-if (!res.ok) throw new Error(data.message || "Save failed");
-
-      addMsg.innerHTML =
-        `<span class="text-emerald-600">บันทึกสำเร็จ</span>`;
-
-      await search(1);
-      setTimeout(closeModal, 400);
-
-    } catch (err) {
-      addMsg.innerHTML =
-        `<span class="text-rose-600">ผิดพลาด : ${err.message}</span>`;
-    }
-
-    return;
-  }
-
-  // ================= IMPORT MODE =================
-  if (addMode === "import") {
-    if (isImporting) return;
-
-    addMsg.innerHTML = "";
-
-    if (!importFileInput.files.length) {
-      addMsg.innerHTML =
-        `<span class="text-rose-600">กรุณาเลือกไฟล์ .xlsx</span>`;
-      return;
-    }
-
-    setImportState(true);
-
-    const clientStart = nowISO();
-    logLine(`Client เริ่ม upload : ${fmtTime(clientStart)}`);
-
-    const fd = new FormData();
-    fd.append("file", importFileInput.files[0]);
-    const uiStart = performance.now();
-
-    try {
-      const res = await fetch(`${window.env.API_BASE_URL}/api/insert_product_service/excel`, {
-        method: "POST",
-        body: fd,
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Import failed");
-
-      const uiEnd = performance.now();
-      logLine(`Start : ${fmtTime(data.timing?.started_at || data.started_at)}`);
-      logLine(`End : ${fmtTime(data.timing?.finished_at || data.finished_at)}`);
-
-      const durationSec =
-        data.timing?.durationSec ??
-        (data.duration_ms ? (data.duration_ms / 1000).toFixed(2) : "-");
-
-      logLine(`Processing time : ${durationSec} sec`);
-      logLine(`Client Processing time : ${((uiEnd - uiStart) / 1000).toFixed(2)} sec`);
-
-      await search(1);
-
-    } catch (err) {
-      logLine(`❌ <span class="text-rose-600">${err.message}</span>`);
-    } finally {
-      setImportState(false);
-    }
-  }
-};
-
-
-search(1);
+// init
+loadBuckets().finally(() => search(1));

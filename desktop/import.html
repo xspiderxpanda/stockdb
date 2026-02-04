@@ -114,7 +114,7 @@ td {
       <h2 class="text-sm font-semibold text-slate-900">Import Excel (.xlsx)</h2>
 
       <div class="mt-4">
-        <input id="importFileInput" type="file" accept=".xlsx"
+        <input id="importFileInput" type="file" accept=".xlsx,.csv"
                class="block w-full text-sm text-slate-700 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-slate-800">
       </div>
 
@@ -133,6 +133,8 @@ td {
     </section>
   </main>
 
+  <!-- XLSX: ใช้สำหรับอ่านไฟล์ .xlsx ฝั่งหน้าบ้าน (client_chunk) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="import.js"></script>
 </body>
 </html>
