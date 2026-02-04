@@ -1,7 +1,12 @@
 node_modules/
 desktop/node_modules/
+desktop/out/
 dist/
 .env
 
 /server/node_modules
 /desktop/node_modules
+
+*.dmg
+*.zip
+*.asar
