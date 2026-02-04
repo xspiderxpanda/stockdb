@@ -1,2 +1,12 @@
-# CICD_POC/
-destkop/
+desktop/out/
+out/
+dist/
+build/
+release/
+*.dmg
+*.zip
+*.asar
+
+# macOS
+.DS_Store
+EOF
